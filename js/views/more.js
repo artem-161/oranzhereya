@@ -31,6 +31,12 @@ export function render() {
     <h2 class="section-title">Профиль</h2>
     <div class="card rows">
       ${row({ ic: 'user', title: 'Как к тебе обращаться', sub: esc(state.settings.name), action: 'rename' })}
+      ${row({ ic: 'calendar', title: 'Статистика и прогноз', sub: 'Графики, ритм полива, когда пересаживать', tag: 'a', extra: 'href="#/stats"' })}
+      <button class="row" data-action="toggle-seasonal">
+        <span class="row-ico">${icon('sun')}</span>
+        <span class="row-text"><b>Сезонный режим</b><small>Зимой поливать реже и не подкармливать, летом — чаще</small></span>
+        <span class="switch ${state.settings.seasonal ? 'on' : ''}"><i></i></span>
+      </button>
     </div>
 
     ${isStandalone() ? '' : `

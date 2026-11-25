@@ -808,3 +808,98 @@ body::after {
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition-duration: .01ms !important; }
 }
+
+/* =========================================================================
+   v2: выбор дня, календарь, статистика
+   ========================================================================= */
+
+.cal-row { margin: 18px 4px 8px; }
+.cal-row .eyebrow { margin: 0; }
+.cal-row .link-btn { margin-top: 0; }
+.week-nav { display: flex; align-items: center; gap: 2px; margin: 0 -10px; }
+.week-nav .week { flex: 1; margin: 0; gap: 5px; }
+.week-arrow { width: 22px; height: 44px; display: grid; place-items: center; color: var(--muted); flex: none; }
+.week-arrow .ico { width: 18px; height: 18px; }
+.day { cursor: pointer; transition: transform .2s cubic-bezier(.3,1.6,.5,1), background .2s; }
+.day:active { transform: scale(.92); }
+.day.is-past { opacity: .7; }
+.day.is-today:not(.is-sel) { background: var(--card); color: var(--accent); border: 1.5px solid var(--accent); box-shadow: none; }
+.day.is-today:not(.is-sel) small { color: var(--accent); }
+.day.is-today:not(.is-sel) .dots i { background: var(--accent-2); }
+.day.is-sel { opacity: 1; background: var(--accent); border-color: transparent; color: var(--on-accent); box-shadow: 0 8px 18px -8px rgba(47,107,70,.7); }
+.day.is-sel small { color: inherit; opacity: .8; }
+.day.is-sel .dots i { background: var(--on-accent); }
+.done-mark { width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center; background: var(--hue); color: #fff; flex: none; margin-right: 4px; }
+.done-mark .ico { width: 18px; height: 18px; stroke-width: 2.4; }
+.hero[data-href] { cursor: pointer; }
+
+.cal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 12px; }
+.cal-head b { font: 600 20px var(--serif); }
+.cal-wd, .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 4px; }
+.cal-wd span { text-align: center; font-size: 11.5px; font-weight: 650; color: var(--muted); text-transform: uppercase; padding-bottom: 6px; }
+.cal-day { aspect-ratio: 1; border-radius: 14px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 3px; background: var(--card-solid); border: 0.5px solid var(--line); }
+.cal-day b { font: 600 16px var(--rounded); }
+.cal-day .dots { display: flex; gap: 2px; height: 4px; }
+.cal-day .dots i { width: 4px; height: 4px; border-radius: 50%; background: var(--accent-2); }
+.cal-day.is-past { opacity: .6; }
+.cal-day.is-today { border: 1.5px solid var(--accent); color: var(--accent); }
+.cal-day.is-sel { background: var(--accent); color: var(--on-accent); opacity: 1; }
+.cal-day.is-sel .dots i { background: var(--on-accent); }
+
+.back-link { margin: 0 0 10px; }
+.season { padding: 16px 18px; }
+.season-top { display: flex; align-items: center; gap: 12px; }
+.season-top .eyebrow { display: block; margin: 0; font-size: 11px; }
+.season-top b { font: 600 22px var(--serif); }
+.season p { margin: 10px 0 0; line-height: 1.5; color: var(--ink-2); font-size: 15px; }
+.season .hint { margin: 8px 0 0; }
+.season + .stats { margin-top: 12px; }
+
+.chart-card { padding: 16px 12px 6px; }
+.bars { display: flex; align-items: flex-end; }
+.bar-col { position: relative; height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: flex-end; gap: 6px; padding: 0 2px; outline: none; }
+.bar-col i { display: block; width: min(100%, 22px); border-radius: 4px 4px 0 0; background: color-mix(in srgb, var(--accent-2) 55%, transparent); transition: background .2s; }
+.bar-col.hl i { background: var(--accent); }
+.bar-col small { height: 14px; font-size: 11px; color: var(--muted); white-space: nowrap; }
+.bar-tip { position: absolute; bottom: calc(100% - 4px); left: 50%; transform: translateX(-50%); padding: 4px 8px; border-radius: 8px; background: var(--ink); color: var(--bg); font-size: 12px; white-space: nowrap; opacity: 0; pointer-events: none; transition: opacity .15s; z-index: 2; }
+.bar-col:hover .bar-tip, .bar-col:focus .bar-tip { opacity: 1; }
+.bar-col:hover i, .bar-col:focus i { background: var(--accent); }
+.bars + .hint { margin: 8px 4px 6px; }
+
+.type-list { padding: 8px 14px; }
+.type-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; }
+.type-name { width: 110px; font-size: 14.5px; font-weight: 550; }
+.type-bar { flex: 1; height: 8px; border-radius: 99px; background: var(--hue-soft); overflow: hidden; }
+.type-bar i { display: block; height: 100%; border-radius: inherit; background: var(--hue); }
+.type-row > b { min-width: 24px; text-align: right; font: 650 15px var(--rounded); }
+
+.insight { display: flex; gap: 12px; padding: 14px 16px; align-items: flex-start; }
+.insight > .ico { color: var(--accent); width: 20px; height: 20px; margin-top: 1px; }
+.insight p { margin: 0; font-size: 14.5px; line-height: 1.5; color: var(--ink-2); }
+.insight p b { color: var(--ink); }
+.repot-tip { margin-top: 14px; }
+
+.rows-list { padding: 4px 0; }
+.rhythm-row { display: flex; align-items: center; gap: 12px; padding: 10px 14px; }
+.rhythm-row + .rhythm-row { border-top: 0.5px solid var(--line); }
+.rhythm-row > div:not(.pv) { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.rhythm-row b { font-weight: 600; font-size: 15px; }
+.rhythm-row small { color: var(--muted); font-size: 12.5px; }
+.pv-xs { width: 38px; height: 38px; border-radius: 12px; }
+.pv-xs.pv-empty .ico { width: 50%; height: 50%; }
+.tag { flex: none; font-size: 12px; font-weight: 650; padding: 4px 9px; border-radius: 99px; }
+.tag-ok { background: var(--leaf-soft); color: var(--leaf); }
+.tag-often { background: var(--water-soft); color: var(--water); }
+.tag-rare { background: var(--soil-soft); color: var(--soil); }
+
+.season-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.season-cell { padding: 12px 14px; border-radius: var(--r-m); background: var(--card); border: 0.5px solid var(--card-border); display: flex; flex-direction: column; gap: 2px; }
+.season-cell b { font: 600 17px var(--serif); margin-bottom: 2px; }
+.season-cell small { color: var(--muted); font-size: 12.5px; }
+.season-cell.on { background: var(--accent); color: var(--on-accent); border-color: transparent; }
+.season-cell.on small { color: inherit; opacity: .85; }
+
+.switch { width: 50px; height: 30px; border-radius: 99px; background: rgba(120,120,128,.25); position: relative; flex: none; transition: background .25s; }
+.switch i { position: absolute; top: 2px; left: 2px; width: 26px; height: 26px; border-radius: 50%; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.2); transition: transform .3s cubic-bezier(.3,1.4,.5,1); }
+.switch.on { background: var(--accent-2); }
+.switch.on i { transform: translateX(20px); }

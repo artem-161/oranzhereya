@@ -2,7 +2,7 @@
 
 import { icon } from '../icons.js';
 import { esc, plantVisual } from '../ui.js';
-import { getPlant, CARE, CARE_KEYS, LIGHT, careStatus } from '../store.js';
+import { getPlant, CARE, CARE_KEYS, LIGHT, careStatus, repotAdvice } from '../store.js';
 import { formatFull, relative, days, age } from '../dates.js';
 
 function scheduleCard(st) {
@@ -14,12 +14,22 @@ function scheduleCard(st) {
     <div class="sched card ${st.level}">
       <div class="sched-top">
         <span class="chip-ico hue-${c.hue}">${icon(c.icon)}</span>
-        <div><b>${c.label}</b><small>каждые ${days(st.every)}</small></div>
+        <div><b>${c.label}</b><small>каждые ${days(st.every)}${st.seasonal ? ` · по сезону (обычно ${st.baseEvery})` : ''}</small></div>
         <span class="sched-when">${when}</span>
       </div>
       <div class="bar hue-${c.hue}"><i style="width:${Math.round(st.progress * 100)}%"></i></div>
       <small class="muted">${st.last ? `Последний раз ${relative(st.last)}` : 'Ещё не отмечали'}</small>
     </div>`;
+}
+
+function repotBlock(p) {
+  const a = repotAdvice(p);
+  if (a.need === 'ok') return '';
+  const text = a.need === 'unknown'
+    ? 'Отметь пересадку, когда будешь её делать, — тогда я подскажу следующую.'
+    : a.inWindow ? 'Сейчас весна — самое подходящее время для пересадки.'
+    : `Лучше дождаться весны: окно откроется ${formatFull(a.window)}. Сейчас корни растут медленно, и растению тяжелее восстановиться.`;
+  return `<div class="card insight repot-tip">${icon('pot')}<p><b>${a.need === 'now' ? 'Пора подумать о пересадке' : a.need === 'soon' ? 'Пересадка в этом году' : 'Пересадка'}</b><br>${text}</p></div>`;
 }
 
 export function render({ id }) {
@@ -69,6 +79,8 @@ export function render({ id }) {
     ${statuses.length ? `
       <h2 class="section-title">Расписание</h2>
       <div class="list">${statuses.map(scheduleCard).join('')}</div>` : ''}
+
+    ${repotBlock(p)}
 
     ${p.notes ? `
       <h2 class="section-title">Заметки</h2>

@@ -9,6 +9,7 @@ import * as plants from './views/plants.js';
 import * as plant from './views/plant.js';
 import * as wishes from './views/wishes.js';
 import * as more from './views/more.js';
+import * as stats from './views/stats.js';
 
 /* ---------- Роутинг ---------- */
 
@@ -18,6 +19,7 @@ const routes = [
   { re: /^\/plant\/([\w-]+)$/, view: plant, tab: 'plants', params: (m) => ({ id: m[1] }) },
   { re: /^\/wishes$/, view: wishes, tab: 'wishes' },
   { re: /^\/more$/, view: more, tab: 'more' },
+  { re: /^\/stats$/, view: stats, tab: 'today' },
 ];
 
 let current = null;
@@ -143,6 +145,11 @@ const actions = {
 
   'delete-wish': async (el) => {
     if (await confirmSheet({ title: 'Удалить хотелку?', ok: 'Удалить' })) store.deleteWish(el.dataset.id);
+  },
+
+  'toggle-seasonal': () => {
+    store.commit((s) => { s.settings.seasonal = !s.settings.seasonal; });
+    toast(store.state.settings.seasonal ? 'Сезонный режим включён' : 'Сезонный режим выключен');
   },
 
   seed: () => { store.seedDemo(); toast('Добавила примеры — можно всё потрогать'); },

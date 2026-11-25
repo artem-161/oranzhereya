@@ -1,7 +1,7 @@
 // Хранилище: всё состояние живёт в IndexedDB на телефоне (в localStorage — запасной вариант).
 // Никакого сервера. Чтобы не потерять данные — в разделе «Ещё» есть экспорт/импорт резервной копии.
 
-import { today, addDays, diffDays } from './dates.js';
+import { today, addDays, diffDays, parseISO } from './dates.js';
 
 /* ---------- Справочники ---------- */
 
@@ -63,7 +63,7 @@ const SCHEMA = 1;
 function emptyState() {
   return {
     schema: SCHEMA,
-    settings: { name: 'Юля' },
+    settings: { name: 'Юля', seasonal: true },
     plants: [],
     wishes: [],
   };
@@ -192,15 +192,130 @@ export function careStatus(plant, type) {
   const c = plant.care[type];
   if (!c || !c.every) return null;
   const t = today();
-  const next = c.last ? addDays(c.last, c.every) : t;
+  const every = effectiveEvery(type, c.every, t);
+  if (!every) return null; // уход «на паузе» по сезону
+  const next = c.last ? addDays(c.last, every) : t;
   const left = diffDays(t, next);
   // progress: 1 — только что ухаживали, 0 — пора
-  const progress = c.last ? Math.max(0, Math.min(1, left / c.every)) : 0;
+  const progress = c.last ? Math.max(0, Math.min(1, left / every)) : 0;
   let level = 'ok';
   if (left < 0) level = 'overdue';
   else if (left === 0) level = 'due';
   else if (left <= 2) level = 'soon';
-  return { type, next, left, progress, level, last: c.last, every: c.every };
+  return { type, next, left, progress, level, last: c.last, every, baseEvery: c.every, seasonal: every !== c.every };
+}
+
+/* ---------- Сезоны ---------- */
+
+// Сезоны для комнатных растений (средняя полоса, отопительный сезон).
+// k — множитель интервала полива; feed — подкармливать ли.
+export const SEASONS = {
+  winter: { name: 'Зима', months: [11, 0, 1], water: 1.4, feed: false,
+    tip: 'Период покоя: света мало, рост замедлен. Поливай реже, подкормки на паузе, пересадку отложи до весны. Батареи сушат воздух — опрыскивание и увлажнитель очень кстати.' },
+  spring: { name: 'Весна', months: [2, 3, 4], water: 1, feed: true,
+    tip: 'Растения просыпаются — лучшее время для пересадки, обрезки и возобновления подкормок. Постепенно возвращай обычный режим полива.' },
+  summer: { name: 'Лето', months: [5, 6, 7], water: 0.8, feed: true,
+    tip: 'Активный рост: полив чаще, подкормки по расписанию. Береги от прямого полуденного солнца, можно вынести на балкон.' },
+  autumn: { name: 'Осень', months: [8, 9, 10], water: 1.15, feed: true,
+    tip: 'Рост замедляется: понемногу сокращай полив и подкормки. С октября подкормки лучше свести на нет. Пересаживать уже не стоит.' },
+};
+
+export function seasonOf(iso = today()) {
+  const m = Number(iso.slice(5, 7)) - 1;
+  return Object.entries(SEASONS).find(([, v]) => v.months.includes(m))[0];
+}
+
+/** Интервал с учётом сезона (если включён «сезонный режим»). 0 = на паузе. */
+export function effectiveEvery(type, every, iso = today()) {
+  if (!every || !state.settings.seasonal) return every;
+  const se = SEASONS[seasonOf(iso)];
+  if (type === 'water' || type === 'mist') return Math.max(1, Math.round(every * se.water));
+  if (type === 'fertilize' && !se.feed) return 0;
+  return every;
+}
+
+/** Когда последний раз пересаживали (по расписанию, дневнику или дате появления). */
+export function lastRepot(p) {
+  return p.care.repot?.last || p.log.find((e) => e.type === 'repot')?.date || null;
+}
+
+/** Совет по пересадке для растения. */
+export function repotAdvice(p, t = today()) {
+  const last = lastRepot(p);
+  const since = last ? diffDays(last, t) : (p.acquired ? diffDays(p.acquired, t) : null);
+  const season = seasonOf(t);
+  const y = Number(t.slice(0, 4));
+  const springStart = season === 'spring' ? t : `${Number(t.slice(5, 7)) >= 6 ? y + 1 : y}-03-01`;
+  const need = since == null ? 'unknown' : since >= 540 ? 'now' : since >= 330 ? 'soon' : 'ok';
+  return { last, since, need, window: springStart, inWindow: season === 'spring' };
+}
+
+/* ---------- Задачи на конкретный день ---------- */
+
+/**
+ * Что запланировано на день. Прошлое — то, что было сделано (из дневника),
+ * сегодня — всё, что пора и просрочено, будущее — прогноз по интервалам.
+ */
+export function tasksOn(iso) {
+  const t = today();
+  if (iso < t) {
+    const out = [];
+    for (const p of state.plants) for (const e of p.log) if (e.date === iso) out.push({ plant: p, type: e.type, entry: e, done: true });
+    return out;
+  }
+  const out = [];
+  for (const p of state.plants) {
+    for (const k of CARE_KEYS) {
+      const st = careStatus(p, k);
+      if (!st) continue;
+      if (iso === t) { if (st.left <= 0) out.push({ plant: p, ...st }); continue; }
+      const base = st.next < t ? t : st.next;
+      const d = diffDays(base, iso);
+      if (d >= 0 && d % st.every === 0) out.push({ plant: p, ...st, left: diffDays(t, iso), next: iso, level: 'ok' });
+    }
+  }
+  return out;
+}
+
+/** Сколько дел на каждый день диапазона (для точек в календаре). */
+export function countsBetween(from, to) {
+  const map = {};
+  for (let d = from; d <= to; d = addDays(d, 1)) map[d] = tasksOn(d).length;
+  return map;
+}
+
+/* ---------- Статистика ---------- */
+
+export function careStats(t = today()) {
+  const all = state.plants.flatMap((p) => p.log.map((e) => ({ ...e, plant: p })));
+  const last30 = all.filter((e) => diffDays(e.date, t) < 30 && e.date <= t);
+  const byType = Object.fromEntries(CARE_KEYS.map((k) => [k, last30.filter((e) => e.type === k).length]));
+  const activeDays = new Set(last30.map((e) => e.date)).size;
+
+  // по неделям: 8 последних недель (пн–вс)
+  const dow = (parseISO(t).getDay() + 6) % 7;
+  const weekStart = addDays(t, -dow);
+  const weeks = Array.from({ length: 8 }, (_, i) => {
+    const from = addDays(weekStart, -7 * (7 - i)), to = addDays(from, 6);
+    return { from, to, n: all.filter((e) => e.date >= from && e.date <= to).length };
+  });
+
+  // реальный интервал полива vs план
+  const rhythm = state.plants.map((p) => {
+    const dates = [...new Set(p.log.filter((e) => e.type === 'water').map((e) => e.date))].sort();
+    if (dates.length < 3 || !p.care.water.every) return null;
+    const gaps = dates.slice(1).map((d, i) => diffDays(dates[i], d)).slice(-6);
+    const avg = gaps.reduce((a, b) => a + b, 0) / gaps.length;
+    return { plant: p, avg: Math.round(avg * 10) / 10, plan: effectiveEvery('water', p.care.water.every, t) };
+  }).filter(Boolean);
+
+  // прогноз на 30 дней
+  const forecast = Array.from({ length: 30 }, (_, i) => {
+    const d = addDays(t, i);
+    return { date: d, n: tasksOn(d).length };
+  });
+
+  return { total30: last30.length, byType, activeDays, weeks, rhythm, forecast };
 }
 
 /** Все задачи по всем растениям, отсортированные по срочности. */
@@ -250,6 +365,7 @@ export function fulfillWish(id) {
 /* ---------- Демо-данные ---------- */
 
 export function seedDemo() {
+  const hist = (every, n, tt) => Array.from({ length: n }, (_, i) => ({ id: uid(), type: 'water', date: addDays(tt, -(i * every + (i ? Math.floor(Math.random() * 3) : 0))), note: '' }));
   const t = today();
   const mk = (name, species, location, light, water, wLast, extra = {}) => normalizePlant({
     id: uid(), name, species, location, light, createdAt: t,
@@ -259,7 +375,7 @@ export function seedDemo() {
       fertilize: { every: 30, last: addDays(t, -(3 + Math.floor(Math.random() * 24))) },
       ...extra,
     },
-    log: [{ id: uid(), type: 'water', date: addDays(t, -wLast), note: '' }],
+    log: hist(water, 8, addDays(t, -wLast)),
   });
   commit((s) => {
     s.plants.push(

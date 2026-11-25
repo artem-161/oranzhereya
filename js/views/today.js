@@ -3,6 +3,7 @@
 import { icon } from '../icons.js';
 import { esc, plantVisual, emptyState, openSheet } from '../ui.js';
 import { state, CARE, allTasks, tasksOn, countsBetween, SEASONS, seasonOf } from '../store.js';
+import { collectionTips } from '../tips.js';
 import { today, addDays, parseISO, toISO, formatLong, weekday, weekdayShort, relative, days, plural } from '../dates.js';
 
 // Выбранный день живёт между перерисовками
@@ -117,6 +118,17 @@ export function openCalendar(rerender) {
   });
 }
 
+function tipsBlock() {
+  const tips = collectionTips(2);
+  if (!tips.length) return '';
+  return `<div class="tips-list">${tips.map((x) => `
+    <div class="tip card" ${x.href ? `data-href="${x.href}"` : x.action ? `data-action="${x.action}"` : ''}>
+      <span class="tip-ico">${icon(x.icon)}</span>
+      <div><b>${esc(x.title)}</b><p>${esc(x.text)}</p></div>
+      <button class="tip-x" data-action="dismiss-tip" data-key="${esc(x.key)}" aria-label="Скрыть">${icon('close')}</button>
+    </div>`).join('')}</div>`;
+}
+
 /* ---------- Экран ---------- */
 
 export function render() {
@@ -136,7 +148,8 @@ export function render() {
         icon: 'sprout', title: 'Здесь будет твой сад',
         text: 'Добавь первое растение — и я напомню, когда его полить и подкормить.',
         button: 'Добавить растение', action: 'add-plant',
-      }) + `<button class="btn btn-ghost btn-block" data-action="seed">Посмотреть на примере</button>`,
+      }) + `<button class="btn btn-ghost btn-block" data-action="import-collection">Добавить мою коллекцию (23 растения)</button>
+           <button class="btn btn-ghost btn-block" data-action="seed">Посмотреть на примере</button>`,
     };
   }
 
@@ -195,6 +208,8 @@ export function render() {
         <small>${state.plants.length} ${plural(state.plants.length, ['растение', 'растения', 'растений'])} · ${season.name.toLowerCase()} · статистика ›</small>
       </div>
     </section>
+
+    ${sel === t ? tipsBlock() : ''}
 
     <div class="section-row cal-row">
       <span class="eyebrow">${mondayOf(sel) === mondayOf(t) ? 'Эта неделя' : `Неделя с ${formatLong(mondayOf(sel))}`}</span>

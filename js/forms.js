@@ -2,7 +2,8 @@
 
 import { icon } from './icons.js';
 import { esc, $, $$, openSheet, fileToPhoto, toast, plantVisual } from './ui.js';
-import { CARE, CARE_KEYS, state, addPlant, updatePlant, getPlant, addWish, updateWish, logCare } from './store.js';
+import { CARE, CARE_KEYS, state, addPlant, updatePlant, getPlant, addWish, updateWish, logCare, fromSpecies } from './store.js';
+import { SPECIES, searchSpecies, getSpecies, hydrateWiki, LIGHT_TXT } from './catalog.js';
 import { today } from './dates.js';
 
 /* ---------- Общие куски ---------- */
@@ -56,7 +57,8 @@ export function plantForm(id = null, onSaved) {
     care: Object.fromEntries(CARE_KEYS.map((k) => [k, { every: CARE[k].every, last: null }])),
   };
   const lastWater = p.care.water.last || today();
-  const locations = [...new Set(state.plants.map((x) => x.location).filter(Boolean))];
+  const locations = [...new Set([...state.settings.rooms.map((r) => r.name), ...state.plants.map((x) => x.location)].filter(Boolean))];
+  const spNow = p.speciesId ? getSpecies(p.speciesId) : null;
 
   const careRows = CARE_KEYS.map((k) => `
     <div class="care-row" data-care="${k}">
@@ -77,6 +79,12 @@ export function plantForm(id = null, onSaved) {
     body: `
       <form class="form" autocomplete="off">
         ${photoField(p.photo)}
+        <button type="button" class="species-pick card" data-pick-species>
+          <span class="species-pick-ico" ${spNow ? `data-wiki="${esc(spNow.wiki)}"` : ''}>${icon('search')}</span>
+          <span class="species-pick-text"><b data-sp-name>${spNow ? esc(spNow.name) : 'Выбрать вид из каталога'}</b>
+          <small data-sp-sub>${spNow ? 'Уход заполнен по каталогу — можно поправить' : `${SPECIES.length} видов: свет, полив, влажность заполнятся сами`}</small></span>
+          ${icon('chevronRight', 'row-chev')}
+        </button>
         <div class="field-group">
           <label class="field"><span>Название</span><input name="name" required placeholder="Например, Монстера" value="${esc(p.name)}" /></label>
           <label class="field"><span>Вид / сорт</span><input name="species" placeholder="Monstera deliciosa" value="${esc(p.species)}" /></label>
@@ -105,6 +113,28 @@ export function plantForm(id = null, onSaved) {
     onMount(el, close) {
       bindPhoto(el, (d) => { p.photo = d; });
       bindSegmented(el, 'light', (v) => { p.light = v; });
+      hydrateWiki(el);
+
+      const renderCare = () => $$('.care-row', el).forEach((row) => {
+        const k = row.dataset.care;
+        $('[data-every]', row).textContent = p.care[k].every || '—';
+        $('[data-every-label]', row).textContent = everyLabel(p.care[k].every);
+      });
+      $('[data-pick-species]', el).onclick = () => speciesPicker((sp) => {
+        const base = fromSpecies(sp);
+        p.speciesId = sp.id;
+        for (const k of CARE_KEYS) p.care[k].every = base.care[k].every;
+        p.light = sp.light;
+        const form = $('form', el);
+        if (!form.elements.name.value.trim()) form.elements.name.value = sp.name;
+        form.elements.species.value = sp.latin;
+        $$('[data-seg="light"] button', el).forEach((b) => b.classList.toggle('on', b.dataset.v === sp.light));
+        $('[data-sp-name]', el).textContent = sp.name;
+        $('[data-sp-sub]', el).textContent = 'Уход заполнен по каталогу — можно поправить';
+        $('.species-pick-ico', el).dataset.wiki = sp.wiki;
+        hydrateWiki(el);
+        renderCare();
+      });
 
       $$('.care-row', el).forEach((row) => {
         const k = row.dataset.care;
@@ -136,6 +166,7 @@ export function plantForm(id = null, onSaved) {
           light: p.light,
           photo: p.photo,
           care: p.care,
+          speciesId: p.speciesId || null,
         };
         data.care.water.last = f.get('lastWater') || data.care.water.last;
         // Для новых растений остальные виды ухода начинаем отсчитывать с сегодняшнего дня.
@@ -151,6 +182,38 @@ export function plantForm(id = null, onSaved) {
         close();
         onSaved?.(saved);
       };
+    },
+  });
+}
+
+/* ---------- Выбор вида из каталога ---------- */
+
+export function speciesPicker(onPick) {
+  const item = (s) => `
+    <button type="button" class="sp-item" data-id="${s.id}">
+      <span class="sp-thumb" data-wiki="${esc(s.wiki)}">${icon('leaf')}</span>
+      <span class="sp-text"><b>${esc(s.name)}</b><small>${esc(s.latin)} · ${LIGHT_TXT[s.light].toLowerCase()}</small></span>
+    </button>`;
+  openSheet({
+    title: 'Каталог растений',
+    body: `
+      <div class="search glass-field">${icon('search')}<input type="search" placeholder="Название, латынь или «денежное дерево»" data-q /></div>
+      <div class="sp-list" data-list>${SPECIES.map(item).join('')}</div>
+      <p class="hint center">Нет нужного вида? Напиши название вручную — а вид добавим в каталог позже.</p>`,
+    onMount(el, close) {
+      const list = $('[data-list]', el);
+      hydrateWiki(list);
+      $('[data-q]', el).addEventListener('input', (e) => {
+        const r = searchSpecies(e.target.value);
+        list.innerHTML = r.length ? r.map(item).join('') : '<p class="muted center">Не нашлось</p>';
+        hydrateWiki(list);
+      });
+      list.addEventListener('click', (e) => {
+        const b = e.target.closest('[data-id]');
+        if (!b) return;
+        onPick(getSpecies(b.dataset.id));
+        close();
+      });
     },
   });
 }

@@ -31,6 +31,7 @@ export function render() {
     <h2 class="section-title">Профиль</h2>
     <div class="card rows">
       ${row({ ic: 'user', title: 'Как к тебе обращаться', sub: esc(state.settings.name), action: 'rename' })}
+      ${row({ ic: 'pin', title: 'Мой дом', sub: state.settings.rooms.length ? `${state.settings.rooms.length} комн.: окна, батареи, влажность` : 'Комнаты и окна — для советов, куда поставить', action: 'rooms' })}
       ${row({ ic: 'calendar', title: 'Статистика и прогноз', sub: 'Графики, ритм полива, когда пересаживать', tag: 'a', extra: 'href="#/stats"' })}
       <button class="row" data-action="toggle-seasonal">
         <span class="row-ico">${icon('sun')}</span>
@@ -54,6 +55,7 @@ export function render() {
     <div class="card rows">
       ${row({ ic: 'download', title: 'Сохранить резервную копию', sub: 'Файл .json — в «Файлы» или себе в Telegram', action: 'export' })}
       ${row({ ic: 'upload', title: 'Восстановить из копии', sub: 'Заменит текущие данные', tag: 'label', extra: 'for="import-file"' })}
+      ${row({ ic: 'leaf', title: 'Добавить мою коллекцию', sub: '23 растения Юли одним нажатием', action: 'import-collection' })}
       ${row({ ic: 'sparkle', title: 'Добавить примеры', sub: 'Пара растений и хотелок для пробы', action: 'seed' })}
     </div>
     <input type="file" id="import-file" accept="application/json,.json" hidden data-input="import" />

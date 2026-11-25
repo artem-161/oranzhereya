@@ -2,7 +2,8 @@
 
 import { icon } from '../icons.js';
 import { esc, plantVisual } from '../ui.js';
-import { getPlant, CARE, CARE_KEYS, LIGHT, careStatus, repotAdvice } from '../store.js';
+import { getPlant, CARE, CARE_KEYS, LIGHT, careStatus, repotAdvice, roomOf, state, seasonOf } from '../store.js';
+import { getSpecies, roomChecks, bestRooms, HUMID_TXT, SUN_TXT, LIGHT_TXT, WINDOW, monthsRange } from '../catalog.js';
 import { formatFull, relative, days, age } from '../dates.js';
 
 function scheduleCard(st) {
@@ -20,6 +21,60 @@ function scheduleCard(st) {
       <div class="bar hue-${c.hue}"><i style="width:${Math.round(st.progress * 100)}%"></i></div>
       <small class="muted">${st.last ? `Последний раз ${relative(st.last)}` : 'Ещё не отмечали'}</small>
     </div>`;
+}
+
+const LV_ICON = { ok: 'check', warn: 'sparkle', bad: 'close' };
+
+function conditionsBlock(p) {
+  const sp = p.speciesId ? getSpecies(p.speciesId) : null;
+  if (!sp) {
+    return `<button class="card insight link-card" data-action="link-species" data-id="${p.id}">${icon('search')}<p><b>Привязать к виду из каталога</b><br>Тогда я подскажу свет, влажность, температуру и лучшее место в доме.</p></button>`;
+  }
+  const winter = ['winter', 'autumn'].includes(seasonOf());
+  const room = roomOf(p);
+  const checks = roomChecks(sp, room, { winter });
+  const problems = checks.filter((c) => c.level !== 'ok');
+
+  // компактная строка: 4 параметра; подробности — по нажатию
+  const chips = [
+    ['light', LIGHT_TXT[sp.light]],
+    ['drop', `полив ~${sp.water[0]}/${sp.water[1] || '—'} дн.`],
+    ['sun', `${sp.temp[0]}–${sp.temp[1]}°`],
+    ['mist', HUMID_TXT[sp.humidity]],
+  ].map(([ic, t]) => `<span class="fact">${icon(ic)}${t}</span>`).join('');
+
+  let place = '';
+  if (room) {
+    place = checks.map((c) => `<li class="lv-${c.level}">${icon(LV_ICON[c.level])}<span>${esc(c.text)}</span></li>`).join('');
+    place = `<ul class="checks">${place}</ul>`;
+  } else if (state.settings.rooms.length) {
+    const best = bestRooms(sp, state.settings.rooms, { winter }).slice(0, 2);
+    place = `<p class="hint">Лучше всего подойдёт: ${best.map((b) => `<b>${esc(b.room.name)}</b>`).join(' или ')}. Укажи комнату в «Редактировать».</p>`;
+  } else {
+    place = `<p class="hint">Добавь комнаты и окна в «Ещё → Мой дом» — подскажу, куда поставить.</p>`;
+  }
+
+  return `
+    <h2 class="section-title">Условия</h2>
+    <div class="facts">${chips}</div>
+    ${problems.length ? `<div class="card insight warn-card">${icon('sparkle')}<p><b>${problems.length === 1 ? 'Есть что улучшить' : `Есть что улучшить: ${problems.length}`}</b><br>${esc(problems[0].text)}</p></div>` : ''}
+    <details class="card more-info">
+      <summary>Всё об уходе за видом ${icon('chevronRight', 'row-chev')}</summary>
+      <div class="more-body">
+        <p class="species">${esc(sp.name)} · ${esc(sp.latin)}</p>
+        ${place}
+        <dl>
+          <dt>Свет</dt><dd>${LIGHT_TXT[sp.light]}, ${SUN_TXT[sp.sun]}. Окна: ${sp.windows.map((w) => WINDOW[w].toLowerCase()).join(', ')}</dd>
+          <dt>Температура</dt><dd>летом ${sp.temp[0]}–${sp.temp[1]}°, зимой ${sp.winter[0]}–${sp.winter[1]}°</dd>
+          <dt>Влажность</dt><dd>${HUMID_TXT[sp.humidity]}${sp.mist ? `, опрыскивать раз в ${sp.mist} дн.` : ', опрыскивать не нужно'}</dd>
+          <dt>Полив</dt><dd>летом раз в ~${sp.water[0]} дн., зимой ${sp.water[1] ? `раз в ~${sp.water[1]} дн.` : 'почти не поливать'}</dd>
+          <dt>Подкормки</dt><dd>${sp.feed ? `раз в ${sp.feed} дн., ${monthsRange(sp.feedMonths)}` : 'не нужны'}</dd>
+          <dt>Грунт</dt><dd>${esc(sp.soil)}; пересадка раз в ${sp.repot} ${sp.repot === 1 ? 'год' : 'года'}, весной</dd>
+          <dt>Животные</dt><dd>${sp.toxic === true ? '⚠️ ядовито для кошек и собак' : sp.toxic === false ? 'безопасно' : 'нет данных — лучше не давать грызть'}</dd>
+        </dl>
+        <ul class="tips">${sp.tips.map((t) => `<li>${esc(t)}</li>`).join('')}</ul>
+      </div>
+    </details>`;
 }
 
 function repotBlock(p) {
@@ -79,6 +134,8 @@ export function render({ id }) {
     ${statuses.length ? `
       <h2 class="section-title">Расписание</h2>
       <div class="list">${statuses.map(scheduleCard).join('')}</div>` : ''}
+
+    ${conditionsBlock(p)}
 
     ${repotBlock(p)}
 

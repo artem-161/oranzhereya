@@ -1,6 +1,7 @@
 // Общие UI-помощники: экранирование, тосты, нижние шторки, подтверждения, фото.
 
 import { icon, hydrateIcons } from './icons.js';
+import { getSpecies } from './catalog.js';
 
 export const esc = (s = '') => String(s)
   .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
@@ -25,7 +26,8 @@ export function tintFor(str = '') {
 export function plantVisual(p, cls = '') {
   if (p.photo) return `<div class="pv ${cls}"><img src="${p.photo}" alt="" loading="lazy" /></div>`;
   const [a, b] = tintFor(p.name);
-  return `<div class="pv pv-empty ${cls}" style="--a:${a};--b:${b}">${icon('leaf')}</div>`;
+  const sp = p.speciesId ? getSpecies(p.speciesId) : null;
+  return `<div class="pv pv-empty ${cls}" style="--a:${a};--b:${b}" ${sp ? `data-wiki="${esc(sp.wiki)}"` : ''}>${icon('leaf')}</div>`;
 }
 
 /* ---------- Тосты ---------- */

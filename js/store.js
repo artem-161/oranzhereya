@@ -2,6 +2,7 @@
 // Никакого сервера. Чтобы не потерять данные — в разделе «Ещё» есть экспорт/импорт резервной копии.
 
 import { today, addDays, diffDays, parseISO } from './dates.js';
+import { getSpecies, MY_COLLECTION } from './catalog.js';
 
 /* ---------- Справочники ---------- */
 
@@ -63,7 +64,7 @@ const SCHEMA = 1;
 function emptyState() {
   return {
     schema: SCHEMA,
-    settings: { name: 'Юля', seasonal: true },
+    settings: { name: 'Юля', seasonal: true, rooms: [], dismissed: [] },
     plants: [],
     wishes: [],
   };
@@ -192,7 +193,7 @@ export function careStatus(plant, type) {
   const c = plant.care[type];
   if (!c || !c.every) return null;
   const t = today();
-  const every = effectiveEvery(type, c.every, t);
+  const every = effectiveEvery(type, c.every, t, plant);
   if (!every) return null; // уход «на паузе» по сезону
   const next = c.last ? addDays(c.last, every) : t;
   const left = diffDays(t, next);
@@ -226,9 +227,22 @@ export function seasonOf(iso = today()) {
 }
 
 /** Интервал с учётом сезона (если включён «сезонный режим»). 0 = на паузе. */
-export function effectiveEvery(type, every, iso = today()) {
+export function effectiveEvery(type, every, iso = today(), plant = null) {
   if (!every || !state.settings.seasonal) return every;
-  const se = SEASONS[seasonOf(iso)];
+  const seasonKey = seasonOf(iso);
+  const se = SEASONS[seasonKey];
+  const sp = plant?.speciesId ? getSpecies(plant.speciesId) : null;
+  if (sp) {
+    // Для видов из каталога — их собственный зимний режим
+    const month = Number(iso.slice(5, 7)) - 1;
+    if (type === 'fertilize') return sp.feedMonths.includes(month) ? every : 0;
+    if (type === 'water' && sp.water[0]) {
+      const ratio = sp.water[1] / sp.water[0];
+      const k = { winter: ratio, autumn: (1 + ratio) / 2, spring: 1, summer: 0.85 }[seasonKey];
+      return Math.max(1, Math.round(every * k));
+    }
+    if (type === 'mist' && seasonKey === 'winter') return every;
+  }
   if (type === 'water' || type === 'mist') return Math.max(1, Math.round(every * se.water));
   if (type === 'fertilize' && !se.feed) return 0;
   return every;
@@ -306,7 +320,7 @@ export function careStats(t = today()) {
     if (dates.length < 3 || !p.care.water.every) return null;
     const gaps = dates.slice(1).map((d, i) => diffDays(dates[i], d)).slice(-6);
     const avg = gaps.reduce((a, b) => a + b, 0) / gaps.length;
-    return { plant: p, avg: Math.round(avg * 10) / 10, plan: effectiveEvery('water', p.care.water.every, t) };
+    return { plant: p, avg: Math.round(avg * 10) / 10, plan: effectiveEvery('water', p.care.water.every, t, p) };
   }).filter(Boolean);
 
   // прогноз на 30 дней
@@ -336,6 +350,65 @@ export function plantUrgency(p) {
   if (!list.length) return null;
   return list.sort((a, b) => a.left - b.left)[0];
 }
+
+/* ---------- Каталог видов ---------- */
+
+/** Поля растения по виду из каталога: название, латынь, свет, интервалы ухода. */
+export function fromSpecies(sp) {
+  return {
+    speciesId: sp.id,
+    species: sp.latin,
+    light: sp.light,
+    care: {
+      water: { every: sp.water[0], last: null },
+      fertilize: { every: sp.feed, last: null },
+      mist: { every: sp.mist, last: null },
+      repot: { every: 0, last: null },
+      prune: { every: 0, last: null },
+    },
+  };
+}
+
+/** Добавить коллекцию Юли целиком (пропуская уже добавленные). */
+export function importCollection() {
+  const t = today();
+  const have = new Set(state.plants.map((p) => p.name.toLowerCase()));
+  let n = 0;
+  commit((s) => {
+    for (const [name, id, latin] of MY_COLLECTION) {
+      if (have.has(name.toLowerCase())) continue;
+      const sp = getSpecies(id);
+      const base = fromSpecies(sp);
+      for (const k of Object.keys(base.care)) if (base.care[k].every) base.care[k].last = t;
+      s.plants.push(normalizePlant({ id: uid(), name, createdAt: t, acquired: null, ...base, species: latin || sp.latin, log: [] }));
+      n++;
+    }
+  });
+  return n;
+}
+
+export function dismiss(key) {
+  commit((s) => { if (!s.settings.dismissed.includes(key)) s.settings.dismissed.push(key); });
+}
+
+/* ---------- Комнаты ---------- */
+
+export function saveRoom(room) {
+  commit((s) => {
+    const i = s.settings.rooms.findIndex((r) => r.id === room.id);
+    if (i >= 0) {
+      const old = s.settings.rooms[i].name;
+      s.settings.rooms[i] = room;
+      if (old !== room.name) s.plants.forEach((p) => { if (p.location === old) p.location = room.name; });
+    } else s.settings.rooms.push({ ...room, id: uid() });
+  });
+}
+
+export function deleteRoom(id) {
+  commit((s) => { s.settings.rooms = s.settings.rooms.filter((r) => r.id !== id); });
+}
+
+export const roomOf = (p) => state.settings.rooms.find((r) => r.name === p.location) || null;
 
 /* ---------- Хотелки ---------- */
 

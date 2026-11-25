@@ -1,9 +1,11 @@
 // Точка входа: роутер по #хэшу, отрисовка экранов, обработка нажатий.
 
 import { hydrateIcons } from './icons.js';
+import { hydrateWiki } from './catalog.js';
 import { $, $$, toast, confirmSheet, openSheet, closeAllSheets, esc } from './ui.js';
 import * as store from './store.js';
-import { plantForm, wishForm, careLogForm } from './forms.js';
+import { plantForm, wishForm, careLogForm, speciesPicker } from './forms.js';
+import { roomsSheet } from './rooms.js';
 import * as today from './views/today.js';
 import * as plants from './views/plants.js';
 import * as plant from './views/plant.js';
@@ -44,6 +46,7 @@ function render({ keepScroll = false } = {}) {
   viewEl.innerHTML = out.html;
   viewEl.className = `view view-${route.tab}${out.immersive ? ' immersive' : ''}`;
   hydrateIcons(viewEl);
+  hydrateWiki(viewEl);
   out.mount?.(viewEl, () => render({ keepScroll: true }));
 
   document.title = out.title ? `${out.title} · Оранжерея` : 'Оранжерея';
@@ -151,6 +154,23 @@ const actions = {
     store.commit((s) => { s.settings.seasonal = !s.settings.seasonal; });
     toast(store.state.settings.seasonal ? 'Сезонный режим включён' : 'Сезонный режим выключен');
   },
+
+  rooms: () => roomsSheet(),
+  'link-species': (el) => speciesPicker((sp) => {
+    const p = store.getPlant(el.dataset.id);
+    const base = store.fromSpecies(sp);
+    // привязываем вид; интервалы берём из каталога только для неотслеживаемых видов ухода
+    const care = structuredClone(p.care);
+    for (const k of Object.keys(care)) if (!care[k].every) care[k].every = base.care[k].every;
+    store.updatePlant(p.id, { speciesId: sp.id, species: p.species || sp.latin, light: sp.light, care });
+    toast(`Привязано: ${sp.name}`);
+  }),
+  'import-collection': () => {
+    const n = store.importCollection();
+    toast(n ? `Добавлено растений: ${n} 🌿 Теперь сфотографируй их!` : 'Вся коллекция уже добавлена');
+    if (n) location.hash = '#/plants';
+  },
+  'dismiss-tip': (el) => store.dismiss(el.dataset.key),
 
   seed: () => { store.seedDemo(); toast('Добавила примеры — можно всё потрогать'); },
 

@@ -1,0 +1,17 @@
+{
+  "name": "Оранжерея — дневник растений",
+  "short_name": "Оранжерея",
+  "description": "Коллекция растений, трекер полива и ухода, хотелки.",
+  "lang": "ru",
+  "start_url": "./#/today",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#eef3ea",
+  "theme_color": "#eef3ea",
+  "icons": [
+    { "src": "icons/icon-192.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png" },
+    { "src": "icons/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}

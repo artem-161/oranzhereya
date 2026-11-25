@@ -1,0 +1,54 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no" />
+  <title>Оранжерея</title>
+  <meta name="description" content="Личный дневник растений: коллекция, полив, уход и хотелки." />
+
+  <!-- PWA / iOS -->
+  <link rel="manifest" href="manifest.webmanifest" />
+  <meta name="theme-color" content="#eef3ea" media="(prefers-color-scheme: light)" />
+  <meta name="theme-color" content="#0f1f17" media="(prefers-color-scheme: dark)" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+  <meta name="apple-mobile-web-app-title" content="Оранжерея" />
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png" />
+  <link rel="icon" type="image/svg+xml" href="icons/icon.svg" />
+
+  <link rel="stylesheet" href="css/styles.css" />
+</head>
+<body>
+  <!-- Мягкий живой фон, через который «просвечивает» стекло -->
+  <div class="backdrop" aria-hidden="true">
+    <span class="blob b1"></span><span class="blob b2"></span><span class="blob b3"></span><span class="blob b4"></span>
+  </div>
+
+  <!-- Компактная стеклянная шапка, появляется при прокрутке -->
+  <header class="topbar glass" id="topbar" aria-hidden="true">
+    <button class="topbar-back" id="topbar-back" data-action="back" hidden aria-label="Назад"></button>
+    <span class="topbar-title" id="topbar-title"></span>
+  </header>
+
+  <main id="view" class="view"></main>
+
+  <!-- Нижнее меню в стиле Liquid Glass -->
+  <nav class="dock" id="dock">
+    <div class="tabbar glass" role="tablist">
+      <span class="tab-lens" id="tab-lens" aria-hidden="true"></span>
+      <a class="tab" href="#/today" data-tab="today" role="tab"><i data-icon="sun"></i><span>Сегодня</span></a>
+      <a class="tab" href="#/plants" data-tab="plants" role="tab"><i data-icon="leaf"></i><span>Коллекция</span></a>
+      <a class="tab" href="#/wishes" data-tab="wishes" role="tab"><i data-icon="heart"></i><span>Хотелки</span></a>
+      <a class="tab" href="#/more" data-tab="more" role="tab"><i data-icon="more"></i><span>Ещё</span></a>
+    </div>
+    <button class="fab glass" id="fab" data-action="fab" aria-label="Добавить"><i data-icon="plus"></i></button>
+  </nav>
+
+  <!-- Сюда монтируются нижние шторки (формы) и тосты -->
+  <div id="sheet-root"></div>
+  <div id="toast-root"></div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

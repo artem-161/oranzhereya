@@ -1,12 +1,14 @@
 // Экран «Коллекция»: сетка растений с поиском и фильтром по комнатам.
 
-import { icon } from '../icons.js';
+import { icon, hydrateIcons } from '../icons.js';
+import { hydrateWiki } from '../catalog.js';
 import { esc, plantVisual, emptyState } from '../ui.js';
-import { state, CARE, plantUrgency } from '../store.js';
+import { state, CARE, plantUrgency, careStatus } from '../store.js';
+import { GROUPS, groupOf } from '../catalog.js';
 import { days, plural } from '../dates.js';
 
 // Фильтры живут между перерисовками
-const ui = { q: '', room: '' };
+const ui = { q: '', room: '', group: '' };
 
 function badge(p) {
   const u = plantUrgency(p);
@@ -49,10 +51,31 @@ export function render() {
 
   const rooms = [...new Set(state.plants.map((p) => p.location).filter(Boolean))];
   if (ui.room && !rooms.includes(ui.room)) ui.room = '';
-  const q = ui.q.trim().toLowerCase();
-  const list = state.plants.filter((p) =>
+  const groups = Object.keys(GROUPS).filter((g) => state.plants.some((p) => groupOf(p) === g));
+  if (ui.group && !groups.includes(ui.group)) ui.group = '';
+  const filterList = (qq) => state.plants.filter((p) =>
     (!ui.room || p.location === ui.room) &&
-    (!q || `${p.name} ${p.species} ${p.location}`.toLowerCase().includes(q)));
+    (!ui.group || groupOf(p) === ui.group) &&
+    (!qq || `${p.name} ${p.species} ${p.location}`.toLowerCase().includes(qq)));
+  const list = filterList(ui.q.trim().toLowerCase());
+
+  // Секции по группам (если не выбран фильтр группы и групп больше одной)
+  const sections = (items) => {
+    if (!items.length) return `<p class="muted center">Ничего не нашлось</p>`;
+    const gs = ui.group || groups.length < 2 ? [null] : groups;
+    return gs.map((g) => {
+      const its = g ? items.filter((p) => groupOf(p) === g) : items;
+      if (!its.length) return '';
+      const thirsty = its.filter((p) => (careStatus(p, 'water')?.left ?? 1) <= 0);
+      const ids = its.map((p) => p.id).join(',');
+      return `
+        <section class="group">
+          ${g ? `<div class="group-head"><h2 class="section-title">${GROUPS[g]} <small>${its.length}</small></h2>
+            <button class="pill ${thirsty.length ? 'pill-water' : ''}" data-action="water-many" data-ids="${ids}">${icon('drop')} Полить ${thirsty.length ? `· ${thirsty.length} ждут` : 'всех'}</button></div>` : ''}
+          <div class="grid">${its.map(card).join('')}</div>
+        </section>`;
+    }).join('');
+  };
 
   const html = `
     ${head(state.plants.length)}
@@ -60,14 +83,13 @@ export function render() {
       ${icon('search')}
       <input type="search" placeholder="Найти растение" value="${esc(ui.q)}" data-input="search" enterkeyhint="search" />
     </div>
-    ${rooms.length > 1 ? `
+    ${groups.length > 1 || rooms.length > 1 ? `
       <div class="chips scroll-x">
-        <button class="chip ${!ui.room ? 'on' : ''}" data-action="room" data-room="">Все</button>
-        ${rooms.map((r) => `<button class="chip ${ui.room === r ? 'on' : ''}" data-action="room" data-room="${esc(r)}">${icon('pin')}${esc(r)}</button>`).join('')}
+        <button class="chip ${!ui.room && !ui.group ? 'on' : ''}" data-action="room" data-room="" data-group="">Все</button>
+        ${groups.length > 1 ? groups.map((g) => `<button class="chip ${ui.group === g ? 'on' : ''}" data-action="room" data-group="${g}">${GROUPS[g]}</button>`).join('') : ''}
+        ${rooms.length > 1 ? rooms.map((r) => `<button class="chip ${ui.room === r ? 'on' : ''}" data-action="room" data-room="${esc(r)}">${icon('pin')}${esc(r)}</button>`).join('') : ''}
       </div>` : ''}
-    <div class="grid" data-grid>
-      ${list.length ? list.map(card).join('') : `<p class="muted center span-2">Ничего не нашлось</p>`}
-    </div>`;
+    <div data-grid>${sections(list)}</div>`;
 
   return {
     title: 'Коллекция',
@@ -76,16 +98,14 @@ export function render() {
       const input = el.querySelector('[data-input="search"]');
       input?.addEventListener('input', () => {
         ui.q = input.value;
-        const qq = ui.q.trim().toLowerCase();
-        const filtered = state.plants.filter((p) =>
-          (!ui.room || p.location === ui.room) &&
-          (!qq || `${p.name} ${p.species} ${p.location}`.toLowerCase().includes(qq)));
-        el.querySelector('[data-grid]').innerHTML = filtered.length ? filtered.map(card).join('') : `<p class="muted center span-2">Ничего не нашлось</p>`;
+        el.querySelector('[data-grid]').innerHTML = sections(filterList(ui.q.trim().toLowerCase()));
+        hydrateIcons(el); hydrateWiki(el);
       });
       el.addEventListener('click', (e) => {
         const b = e.target.closest('[data-action="room"]');
         if (!b) return;
-        ui.room = b.dataset.room;
+        if ('group' in b.dataset) { ui.group = b.dataset.group; if (!b.dataset.group) ui.room = ''; }
+        else ui.room = b.dataset.room;
         rerender();
       });
     },

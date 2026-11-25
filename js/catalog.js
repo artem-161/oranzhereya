@@ -138,6 +138,16 @@ export const SPECIES = [
 
 export const getSpecies = (id) => SPECIES.find((s) => s.id === id) || null;
 
+// Группы для коллекции (порядок = порядок секций)
+export const GROUPS = {
+  succulent: 'Суккуленты',
+  cactus: 'Кактусы',
+  tropical: 'Тропические лиственные',
+  flowering: 'Цветущие',
+  other: 'Без группы',
+};
+export const groupOf = (p) => (p.speciesId && getSpecies(p.speciesId)?.group) || p.group || 'other';
+
 const norm = (s) => s.toLowerCase().replace(/ё/g, 'е').replace(/['"«»]/g, '');
 export function searchSpecies(q) {
   const n = norm(q.trim());

@@ -1,6 +1,6 @@
 // Service worker: кэширует оболочку приложения, чтобы оно открывалось без интернета.
 // Стратегия «сначала сеть»: обновления приходят сами. VERSION увеличивай, когда меняешь список SHELL.
-const VERSION = 'v3';
+const VERSION = 'v4';
 const CACHE = `oranzhereya-${VERSION}`;
 const SHELL = [
   './',

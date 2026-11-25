@@ -170,6 +170,28 @@ export function logCare(plantId, type, date = today(), note = '') {
   });
 }
 
+/** Отметить уход сразу для многих растений. Возвращает «отменить всё». */
+export function logCareMany(ids, type = 'water', date = today()) {
+  const undos = [];
+  commit(() => {
+    for (const id of ids) {
+      const p = getPlant(id);
+      if (!p) continue;
+      const prevLast = p.care[type]?.last ?? null;
+      const entry = { id: uid(), type, date, note: '' };
+      p.log.unshift(entry);
+      if (!prevLast || date >= prevLast) p.care[type].last = date;
+      undos.push([p, entry, prevLast]);
+    }
+  });
+  return () => commit(() => {
+    for (const [p, entry, prevLast] of undos) {
+      p.log = p.log.filter((e) => e.id !== entry.id);
+      p.care[type].last = prevLast;
+    }
+  });
+}
+
 export function deleteLogEntry(plantId, entryId) {
   const p = getPlant(plantId);
   if (!p) return;

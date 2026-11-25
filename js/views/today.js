@@ -175,7 +175,13 @@ export function render() {
   if (sel === t) {
     const soon = tasks.filter((x) => x.left > 0);
     dayBlock = `
-      <h2 class="section-title">Нужно сейчас</h2>
+      ${(() => {
+        const ids = [...new Set(now.filter((x) => x.type === 'water').map((x) => x.plant.id))];
+        return `<div class="section-row">
+          <h2 class="section-title">Нужно сейчас</h2>
+          ${ids.length >= 2 ? `<button class="pill pill-water" data-action="water-many" data-ids="${ids.join(',')}">${icon('drop')} Полить всё · ${ids.length}</button>` : ''}
+        </div>`;
+      })()}
       ${now.length ? `<div class="list">${now.map((x) => taskRow(x)).join('')}</div>` : `
         <div class="all-done card">
           <div class="all-done-ico">${icon('sparkle')}</div>

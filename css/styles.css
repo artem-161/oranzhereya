@@ -960,3 +960,11 @@ body::after {
 .tip-x .ico { width: 15px; height: 15px; }
 
 .toggle-field input[type="checkbox"] { flex: 0 0 auto; width: 22px; height: 22px; accent-color: var(--accent); margin-left: auto; }
+
+/* v4: группы и «полить всё» */
+.group-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; margin-top: 26px; }
+.group-head .section-title { margin: 0 4px; }
+.group-head small { font: 600 14px var(--sans); color: var(--muted); margin-left: 4px; }
+.group .grid { margin-top: 12px; }
+.pill-water { background: var(--water); color: #fff; }
+.section-row .pill { margin-top: 16px; flex: none; }

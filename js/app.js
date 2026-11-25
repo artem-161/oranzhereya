@@ -170,6 +170,12 @@ const actions = {
     toast(n ? `Добавлено растений: ${n} 🌿 Теперь сфотографируй их!` : 'Вся коллекция уже добавлена');
     if (n) location.hash = '#/plants';
   },
+  'water-many': (el) => {
+    const ids = el.dataset.ids.split(',').filter(Boolean);
+    if (!ids.length) return;
+    const undo = store.logCareMany(ids, 'water');
+    toast(`Полито: ${ids.length} 💧`, { action: 'Отменить', onAction: undo });
+  },
   'dismiss-tip': (el) => store.dismiss(el.dataset.key),
 
   seed: () => { store.seedDemo(); toast('Добавила примеры — можно всё потрогать'); },
